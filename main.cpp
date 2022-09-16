@@ -5,12 +5,12 @@
 #include <windows.h>
 #include <locale.h>
 
-char ** get_strings_from_file(int * poem_size);
-char ** poem_sort(char ** poem, int poem_size);
+char ** get_strings_from_file(size_t * poem_size);
+char ** poem_sort(char ** poem, size_t poem_size);
 char* read_line(FILE* file);
-int StrCmp(const char * s1, const char * s2);
-void File_Output(char ** poem, int poem_size);
-void Cleaning(char *** poem, int poem_size);
+int StrCmp(const void * s1, const void * s2);
+void File_Output(char ** poem, size_t poem_size);
+void Cleaning(char *** poem, size_t poem_size);
 
 
 int main()
@@ -19,16 +19,11 @@ int main()
     SetConsoleOutputCP(1251);
     setlocale(LC_ALL, "Russian");
 
-    int poem_size = 0;
+    size_t poem_size = 0;
     char ** poem = get_strings_from_file(&poem_size);
-    poem = poem_sort(poem, poem_size);
 
-    /*
-    for (int j = 0; j < poem_size; j++)
-    {
-        printf("%d %s", j, poem[j]);
-    }
-    */
+    //qsort(poem, poem_size, sizeof(char*), StrCmp);
+    poem = poem_sort(poem, poem_size);
 
     File_Output(poem, poem_size);
     Cleaning(&poem, poem_size);
@@ -36,7 +31,7 @@ int main()
 }
 
 
-char ** get_strings_from_file(int * poem_size)
+char ** get_strings_from_file(size_t * poem_size)
 {
     char file_name[] = "avidreaders.ru__evgeniy-onegin.txt";
     FILE *file = fopen(file_name, "r");
@@ -44,31 +39,45 @@ char ** get_strings_from_file(int * poem_size)
     size_t Strings = 1000;
     char ** poem = (char **)calloc(Strings, sizeof(char*));
 
-    char* string;
+    fseek(file, 0L, SEEK_END);
+    long text_size = ftell(file);
+    rewind(file);
 
-    while ((string = read_line(file)) != NULL)
+    char* text = (char*)calloc(text_size, sizeof(char));
+
+    fread(text, sizeof(char), text_size, file);
+
+    fclose(file);
+    
+    poem[0] = text;
+    size_t string = 1;
+    int symbol = 0;
+
+    while (symbol < text_size)
     {
-        printf("%s", string);
-
-        if (string[0] != '\n')
+        if (text[symbol] == '\n')
         {
-            poem[*poem_size] = string;
+            text[symbol] = '\0';
 
-            (*poem_size)++;
-        }
+            while (text[symbol+1]=='\n') symbol++;
 
-        if (*(poem_size)>=Strings)
-        {
-            poem = (char **) realloc(poem, (Strings+100)*sizeof(char*));
-            Strings += 100;
+            poem[string] = text + symbol + 1;
+            string++;
+
+            if (string == Strings)
+            {
+                Strings *= 2;
+                poem = (char**)realloc(poem, sizeof(char*)*Strings);
+            }
         }
+        symbol++;
     }
     
-    fclose(file);
+    *poem_size = string;
     return poem;
 }
 
-char ** poem_sort(char ** poem, int poem_size)
+char ** poem_sort(char ** poem, size_t poem_size)
 {
     for (int i = 1; i < poem_size; i++)
     {
@@ -86,34 +95,13 @@ char ** poem_sort(char ** poem, int poem_size)
     return poem;
 }
 
-char* read_line(FILE* file)
+int StrCmp(const void * S1, const void * S2)
 {
-    const size_t DEFAULT_SIZE = 100;
-    char* string = (char*)calloc(DEFAULT_SIZE, sizeof(char));
+    const char * s1 = (const char*) S1;
+    const char * s2 = (const char*) S2;
+    while (*s1 == '\"' || *s1 == '«' || *s1 == '–' || *s1 == ' ') s1++;
+    while (*s2 == '\"' || *s2 == '«' || *s2 == '–' || *s2 == ' ') s2++;
 
-    int current_size = 0;
-    int max_current_size = DEFAULT_SIZE-1;
-    int c = 0;
-    while((c = fgetc(file)) != '\n' && c != EOF)
-    {
-        *(string+current_size) = c;
-
-        current_size++;
-        if (current_size == max_current_size)
-        {
-            max_current_size += 10;
-            string = (char*)realloc(string, (max_current_size+1) * sizeof(char));
-        }
-    }
-
-    if (current_size == 0 && c == EOF) return NULL;
-
-    string[current_size] = '\n';
-    return string;
-}
-
-int StrCmp(const char * s1, const char * s2)
-{
     while (*s1 == *s2)
     {
         if (*s1 == '\0') return 0;
@@ -124,11 +112,10 @@ int StrCmp(const char * s1, const char * s2)
         s2++;
         if (*s2 == ' ') s2++;
     }
-
     return *s1 - *s2;
 }
 
-void File_Output(char ** poem, int poem_size)
+void File_Output(char ** poem, size_t poem_size)
 {
     char file_name[] = "Output.txt";
     FILE* file = fopen(file_name, "w");
@@ -136,12 +123,13 @@ void File_Output(char ** poem, int poem_size)
     for (int i = 0; i < poem_size; i++)
     {
         fputs(*(poem + i), file);
+        fputc('\n', file);
     }
 
     fclose(file);
 }
 
-void Cleaning(char *** poem, int poem_size)
+void Cleaning(char *** poem, size_t poem_size)
 {
     for (int i = 0; i < poem_size; i++)
     {
