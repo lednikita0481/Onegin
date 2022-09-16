@@ -22,8 +22,9 @@ int main()
     size_t poem_size = 0;
     char ** poem = get_strings_from_file(&poem_size);
 
-    //qsort(poem, poem_size, sizeof(char*), StrCmp);
-    poem = poem_sort(poem, poem_size);
+    qsort(poem, poem_size, sizeof(char*), StrCmp);
+
+    //poem = poem_sort(poem, poem_size);
 
     File_Output(poem, poem_size);
     Cleaning(&poem, poem_size);
