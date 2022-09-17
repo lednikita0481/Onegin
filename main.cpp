@@ -7,6 +7,7 @@
 
 #include "main.h"
 
+const int FILE_NAME_LENTH = 100;
 char* text = nullptr;
 long text_size = 0;
 
@@ -22,37 +23,34 @@ int main()
     SetConsoleOutputCP(1251);
     setlocale(LC_ALL, "Russian");
 
+    char input_file_name[FILE_NAME_LENTH] = {};
+    char output_file_name[FILE_NAME_LENTH] = {};
+    File_Input_Report code;
+    while ((code = files_names_input(input_file_name, output_file_name)) == NULL_FILE_PTR)
+    {
+        printf("Oops :( This file doesn't exist. Try again pls.\n");
+    }
+
+
     size_t poem_size = 0;
-    struct line * poem = get_strings_from_file(&poem_size);
-
-    char file_name[] = "Output.txt";
-    FILE* file = fopen(file_name, "w");
-    fclose(file);
-
-    assert(poem!=NULL);
+    struct line * poem = get_strings_from_file(&poem_size, input_file_name);
 
     qsort(poem, poem_size, sizeof(struct line), StrCmp);
-    File_Output(poem, poem_size);
+    File_Output(poem, poem_size, output_file_name);
 
     my_sort(poem, poem_size, sizeof(struct line), ReversedStrCmp);
-    File_Output(poem, poem_size);
+    File_Output(poem, poem_size, output_file_name);
 
-    /*
-    fopen(file_name, "a");
-    fwrite(text, sizeof(char), text_size, file);
-    fclose(file);
-    */
-    Origin_text_output(text, text_size);
+    Origin_text_output(text, text_size, output_file_name);
 
     Cleaning(&poem, poem_size);
     return 0;
 }
 
 
-struct line * get_strings_from_file(size_t * poem_size)
+struct line * get_strings_from_file(size_t * poem_size, char* input_file_name)
 {
-    char file_name[] = "Onegin.txt";
-    FILE *file = fopen(file_name, "rb");
+    FILE *file = fopen(input_file_name, "rb");
 
     size_t Strings = 2000;
     struct line * poem = (struct line *)calloc(Strings, sizeof(struct line));
@@ -64,8 +62,7 @@ struct line * get_strings_from_file(size_t * poem_size)
 
     text = (char*)calloc(text_size, sizeof(char));
 
-    long g = fread(text, sizeof(char), text_size, file);
-    printf("%ld\n", g);
+    fread(text, sizeof(char), text_size, file);
 
     fclose(file);
 
@@ -95,7 +92,6 @@ struct line * get_strings_from_file(size_t * poem_size)
         }
         symbol++;
     }
-    printf("я вышел из вз€ти€ строк");
 
     *poem_size = string;
     return poem;
@@ -109,31 +105,34 @@ void my_sort(void * First, size_t number, size_t size, int (* comparator)(const 
     {
         for (int j = 0; j < number - i; j++)
         {
-            //printf("%d %d %d\n", i, j, number);
 
             if ((*comparator)((void*)(first+((j+1)*size)), (void*)(first+(size*j))) < 0)
             {
-                char *Temp = (char *)calloc(size, sizeof(char));
-                for (int k = 0; k < size; k++)
-                {
-                    Temp[k] = *(first + (j*size) + k);
-                }
-
-                for (int k = 0; k < size; k++)
-                {
-                    *(first + (size*j) + k) = *(first + (j + 1)*size + k);
-                }
-
-                for (int k = 0; k < size; k++)
-                {
-                    *(first + size*(j + 1) + k) = Temp[k];
-                }
-
-                free(Temp);
+                swap((first+(size*j)), (first+((j+1)*size)), size);
             }
         }
     }
-    printf(" ажетс€ € отсортировал\n");
+}
+
+void swap(char* first, char* second, size_t size)
+{
+    char *Temp = (char *)calloc(size, sizeof(char));
+    for (int k = 0; k < size; k++)
+    {
+        Temp[k] = *(first + k);
+    }
+
+    for (int k = 0; k < size; k++)
+    {
+        *(first + k) = *(second + k);
+    }
+
+    for (int k = 0; k < size; k++)
+    {
+        *(second + k) = Temp[k];
+    }
+
+    free(Temp);
 }
 
 int StrCmp(const void * S1, const void * S2)
@@ -152,18 +151,20 @@ int StrCmp(const void * S1, const void * S2)
         if (*s1down == '\0') return 0;
 
         s1down++;
-        if (!isalpha(*s1down))
-        {
-            while (!isalpha(*s1down) && (s1down <= s1up)) s1down++;
-        }
+        ptr_increment(&s1down, &s1up);
 
         s2down++;
-        if (!isalpha(*s2down))
-        {
-            while (!isalpha(*s2down) && (s2down <= s2up)) s2down++;
-        }
+        ptr_increment(&s2down, &s2up);
     }
     return *s1down - *s2down;
+}
+
+void ptr_increment(const char ** sdown, const char ** sup)
+{
+    if (!isalpha(**sdown))
+    {
+        while (!isalpha(**sdown) && (*sdown <= *sup)) (*sdown)++;
+    }
 }
 
 int ReversedStrCmp(const void * S1, const void * S2)
@@ -179,18 +180,32 @@ int ReversedStrCmp(const void * S1, const void * S2)
     while ((*s1up == *s2up) && (s1up > s1down) && (s2up > s2down))
     {
         s1up--;
+        /*
         if (!isalpha(*s1up))
         {
             while (!isalpha(*s1up) && s1up >= s1down) s1up--;
         }
+        */
+        ptr_decrement(&s1up, &s1down);
 
         s2up--;
+        /*
         if (!isalpha(*s2up))
         {
             while (!isalpha(*s2up) && s2up >= s2down) s2up--;
         }
+        */
+        ptr_decrement(&s2up, &s2down);
     }
     return *s1up - *s2up;
+}
+
+void ptr_decrement(const char ** sup, const char ** sdown)
+{
+    if (!isalpha(**sup))
+    {
+        while (!isalpha(**sup) && (*sup >= *sdown)) (*sup)--;
+    }
 }
 
 int isalpha(char a)
@@ -201,10 +216,59 @@ int isalpha(char a)
     return 0;
 }
 
-void File_Output(struct line * poem, size_t poem_size)
+enum File_Input_Report files_names_input(char* input_file_name, char * output_file_name)
+{
+    printf("Please, enter the name of input file with name lenth to 100 symbols\n>");
+    fgets(input_file_name, FILE_NAME_LENTH, stdin);
+    for (int i = 0; i < FILE_NAME_LENTH; i++)
+    {
+        if (*(input_file_name+i) == '\n')
+        {
+            *(input_file_name + i) = '\0';
+            break;
+        }
+    }
+
+    FILE* in_file = fopen(input_file_name, "r");
+    if (in_file == NULL)
+    {
+        return NULL_FILE_PTR;
+    }
+    fclose(in_file);
+
+
+    printf("Please, enter the name of output file with name lenth to 100 symbols\n>");
+    fgets(output_file_name, FILE_NAME_LENTH, stdin);
+    for (int i = 0; i < FILE_NAME_LENTH; i++)
+    {
+        if (*(output_file_name+i) == '\n')
+        {
+            *(output_file_name+i) = '\0';
+            break;
+        }
+    }
+
+    FILE* out_file = fopen(output_file_name, "w");
+    fclose(out_file);
+    return OK;
+}
+
+void get_rid_of_slash_n(char* s, int lendth)
+{
+    for (int i = 0; i < lendth; i++)
+    {
+        if (*(s+i) == '\n')
+        {
+            *(s+i) = '\0';
+            break;
+        }
+    }
+}
+
+void File_Output(struct line * poem, size_t poem_size, char* output_file_name)
 {
     char file_name[] = "Output.txt";
-    FILE* file = fopen(file_name, "a");
+    FILE* file = fopen(output_file_name, "a");
 
     for (int i = 0; i < poem_size; i++)
     {
@@ -217,10 +281,10 @@ void File_Output(struct line * poem, size_t poem_size)
     fclose(file);
 }
 
-void Origin_text_output(char* text, long text_size)
+void Origin_text_output(char* text, long text_size, char * output_file_name)
 {
     char file_name[] = "Output.txt";
-    FILE* file = fopen(file_name, "a");
+    FILE* file = fopen(output_file_name, "a");
 
     for (long i = 0; i < text_size - 1; i++)
     {
@@ -233,4 +297,5 @@ void Origin_text_output(char* text, long text_size)
 void Cleaning(struct line ** poem, size_t poem_size)
 {
     free(*poem);
+    free(text);
 }
